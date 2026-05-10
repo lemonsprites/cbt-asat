@@ -4,7 +4,7 @@ import { loginApi, logoutApi, getProfile } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem('token') || null)
-  const user = ref(null)
+  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value)
@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
       token.value = res.token
       localStorage.setItem('token', res.token)
       user.value = res.user
+      localStorage.setItem('user', JSON.stringify(res.user))
       return true
     } catch (e) {
       throw e
@@ -27,17 +28,27 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchProfile() {
     if (!token.value) return
     try {
-      user.value = await getProfile()
+      const data = await getProfile()
+      user.value = data
+      localStorage.setItem('user', JSON.stringify(data))
     } catch {
       logout()
     }
   }
 
-  function logout() {
+  async function logout() {
+    // Panggil API untuk hapus session di Redis
+    try {
+      await logoutApi()
+    } catch (e) {
+      console.error('Logout API error:', e)
+    }
+    
+    // Clear local state
     token.value = null
     user.value = null
     localStorage.removeItem('token')
-    logoutApi().catch(() => {}) // fire-and-forget
+    localStorage.removeItem('user')
   }
 
   return { token, user, loading, isLoggedIn, login, fetchProfile, logout }
